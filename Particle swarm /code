@@ -1,0 +1,53 @@
+import numpy as np
+
+prices = np.array([4]*12 + [10]*6 + [6]*6)
+durations = [2, 3, 1]
+power = [1.5, 2.0, 1.2]
+num_particles = 30
+num_appliances = 3
+max_iter = 100
+w, c1, c2 = 0.5, 1.5, 1.5
+
+def calculate_fitness(positions):
+    costs = []
+    for pos in positions:
+        cost = 0
+        for i in range(num_appliances):
+            start_time = int(np.clip(pos[i], 0, 24 - durations[i]))
+            for t in range(start_time, start_time + durations[i]):
+                cost += power[i] * prices[t]
+        costs.append(cost)
+    return np.array(costs)
+
+X = np.zeros((num_particles, num_appliances))
+for i in range(num_appliances):
+    X[:, i] = np.random.uniform(0, 24 - durations[i], num_particles)
+
+V = np.random.uniform(-1, 1, (num_particles, num_appliances))
+pbest = X.copy()
+pbest_fit = calculate_fitness(X)
+gbest_idx = np.argmin(pbest_fit)
+gbest = pbest[gbest_idx].copy()
+gbest_fit = pbest_fit[gbest_idx]
+
+for iteration in range(max_iter):
+    r1 = np.random.rand(num_particles, num_appliances)
+    r2 = np.random.rand(num_particles, num_appliances)
+    V = w * V + c1 * r1 * (pbest - X) + c2 * r2 * (gbest - X)
+    X = X + V
+    
+    for i in range(num_appliances):
+        X[:, i] = np.clip(X[:, i], 0, 24 - durations[i])
+        
+    current_fit = calculate_fitness(X)
+    better_mask = current_fit < pbest_fit
+    pbest[better_mask] = X[better_mask]
+    pbest_fit[better_mask] = current_fit[better_mask]
+    
+    if np.min(pbest_fit) < gbest_fit:
+        gbest_idx = np.argmin(pbest_fit)
+        gbest = pbest[gbest_idx].copy()
+        gbest_fit = pbest_fit[gbest_idx]
+
+print("Optimal Start Hours:", np.round(gbest).astype(int))
+print("Minimized Cost:", round(gbest_fit, 2))
