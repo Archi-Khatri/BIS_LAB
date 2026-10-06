@@ -1,0 +1,95 @@
+import random
+import copy
+JOBS = {
+    0: [(0, 3), (1, 2), (2, 2)], # Job 0 needs Machine 0 (3m), Machine 1 (2m), Machine 2 (2m)
+    1: [(1, 2), (0, 4), (2, 1)], # Job 1 needs Machine 1 (2m), Machine 0 (4m), Machine 2 (1m)
+    2: [(2, 4), (1, 3), (0, 2)] # Job 2 needs Machine 2 (4m), Machine 1 (3m), Machine 0 (2m)
+}
+NUM_MACHINES = 3
+POP_SIZE = 30
+GENERATIONS = 100
+MUTATION_RATE = 0.2
+ELITISM_COUNT = 2
+def generate_chromosome():
+    chromosome = []
+    for job_id, operations in JOBS.items():
+        chromosome.extend([job_id] * len(operations))
+    random.shuffle(chromosome)
+    return chromosome
+def evaluate_schedule(chromosome):
+    machine_free_at = [0] * NUM_MACHINES
+    job_free_at = [0] * len(JOBS)
+    job_op_pointer = [0] * len(JOBS)
+    for job in chromosome:
+        current_op_idx = job_op_pointer[job]
+        machine, duration = JOBS[job][current_op_idx]
+        start_time = max(machine_free_at[machine], job_free_at[job])
+        end_time = start_time + duration
+        machine_schedules[machine].append((job, start_time, end_time))
+        machine_free_at[machine] = end_time
+        job_free_at[job] = end_time
+        job_op_pointer[job] += 1
+        
+    makespan = max(machine_free_at)
+    return makespan, machine_schedules
+def order_crossover(parent1, parent2):
+    size = len(parent1)
+    child = [-1] * size
+    start, end = sorted(random.sample(range(size), 2))
+    child[start:end+1] = parent1[start:end+1]
+    p2_pointer = 0
+    for i in range(size):
+        if child[i] == -1:
+            while p2_pointer < size:
+                candidate = parent2[p2_pointer]
+                p2_pointer += 1
+                if child.count(candidate) < parent1.count(candidate):
+                    child[i] = candidate
+                    break
+    return child
+def mutate(chromosome):
+    if random.random() < MUTATION_RATE:
+        idx1, idx2 = random.sample(range(len(chromosome)), 2)
+        chromosome[idx1], chromosome[idx2] = chromosome[idx2], chromosome[idx1]
+    return chromosome
+def select_parent(population, tournament_size=3):
+    tournament = random.sample(population, tournament_size)
+    tournament.sort(key=lambda ind: evaluate_schedule(ind)[0])
+    return tournament[0]
+def run_genetic_algorithm():
+    population = [generate_chromosome() for _ in range(POP_SIZE)]
+    
+    print("🚀 Starting Job Shop Scheduling Optimization Engine...")
+    print("-" * 85)
+    
+    for generation in range(1, GENERATIONS + 1):
+        population.sort(key=lambda ind: evaluate_schedule(ind)[0])
+        best_current_makespan, _ = evaluate_schedule(population[0])
+        avg_makespan = sum(evaluate_schedule(ind)[0] for ind in population) / POP_SIZE
+        if generation == 1 or generation % 20 == 0 or generation == GENERATIONS:
+            print(f"Gen {generation:03d} | Best Clear Time (Makespan): {best_current_makespan:<3} mins | Avg Space Health: {avg_makespan:.2f}")
+        next_generation = copy.deepcopy(population[:ELITISM_COUNT]) # Elitism anchor
+        while len(next_generation) < POP_SIZE:
+            p1 = select_parent(population)
+            p2 = select_parent(population)
+            child = order_crossover(p1, p2)
+            child = mutate(child)
+            next_generation.append(child)
+        population = next_generation
+    population.sort(key=lambda ind: evaluate_schedule(ind)[0])
+    best_chromosome = population[0]
+    final_makespan, optimized_schedule = evaluate_schedule(best_chromosome)
+    
+    print("-" * 85)
+    print("\n✅ OPTIMIZATION TARGET REACHED")
+    print(f"Minimum Found Makespan: {final_makespan} minutes")
+    print(f"Optimal String Array : {best_chromosome}\n")
+    print("Machine Resource Timelines Breakdown:")
+    print("=" * 50)
+    for machine_id in sorted(optimized_schedule.keys()):
+        # Sort operations by actual starting execution times on that machine
+        ops_sorted = sorted(optimized_schedule[machine_id], key=lambda x: x[1])
+        timeline_str = " | ".join([f"Job {j} ({start}->{end}m)" for j, start, end in ops_sorted])
+        print(f"Machine {machine_id} Timeline: {timeline_str}")
+if __name__ == "__main__":
+    run_genetic_algorithm()
