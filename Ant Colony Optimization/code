@@ -1,0 +1,64 @@
+import numpy as np
+import random
+
+MODES = {0: "Bus", 1: "Metro", 2: "Auto", 3: "Car"}
+num_modes = len(MODES)
+
+journey_distance_km = 15.0
+
+base_fares = np.array([0.50, 1.20, 2.00, 3.50])
+per_km_rates = np.array([0.10, 0.15, 0.40, 0.80])
+traffic_costs = np.array([1.50, 0.00, 0.50, 2.00])
+
+total_costs = base_fares + (per_km_rates * journey_distance_km) + traffic_costs
+
+num_ants = 20
+num_iterations = 50
+alpha = 1.0
+beta = 3.0
+evaporation_rate = 0.4
+Q = 20
+
+pheromone_vector = np.ones(num_modes)
+
+best_mode_idx = None
+lowest_cost = float('inf')
+
+for iteration in range(num_iterations):
+    ant_choices = []
+    ant_costs = []
+    
+    for ant in range(num_ants):
+        probabilities = []
+        for i in range(num_modes):
+            pheromone = pheromone_vector[i] ** alpha
+            heuristic = (1.0 / total_costs[i]) ** beta
+            probabilities.append(pheromone * heuristic)
+            
+        total_prob = sum(probabilities)
+        probabilities = [p / total_prob for p in probabilities]
+        
+        chosen_mode = random.choices(range(num_modes), weights=probabilities)[0]
+        ant_choices.append(chosen_mode)
+        ant_costs.append(total_costs[chosen_mode])
+        
+        if total_costs[chosen_mode] < lowest_cost:
+            lowest_cost = total_costs[chosen_mode]
+            best_mode_idx = chosen_mode
+
+    pheromone_vector *= (1.0 - evaporation_rate)
+    
+    for chosen_mode, cost in zip(ant_choices, ant_costs):
+        pheromone_vector[chosen_mode] += Q / cost
+
+print("=" * 50)
+print("ACO SINGLE-MODE SELECTION SYSTEM")
+print("=" * 50)
+print(f"Target Distance          : {journey_distance_km} km")
+print(f"ACO Selected Optimal Mode: {MODES[best_mode_idx]}")
+print(f"Calculated Total Cost    : ${lowest_cost:.2f}")
+print("=" * 50)
+print("Final Pheromone Strength per Mode:")
+for idx, ph in enumerate(pheromone_vector):
+    print(f" - {MODES[idx]}: {ph:.2f}")
+print("=" * 50)
